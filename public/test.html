@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Test</title>
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    <script src="components/environment.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+  </head>
+  <body>
+    <a-scene>
+      <a-sky></a-sky>
+
+      <!-- Camera -->
+      <a-entity position="0 1.6 2">
+        <a-camera></a-camera>
+      </a-entity>
+
+      <!-- Sphere that reacts to EDA -->
+      <a-entity id="edaSphere" geometry="primitive: sphere; radius: 0.2" material="color: #390099" position="0 1 -3"></a-entity>
+
+      <!-- Environment entity with editable groundYScale -->
+      <a-entity 
+        id="edaEnvironment"
+        environment="
+          preset: starry;
+          grid: none;
+          lighting: distant;
+          flatShading: false;
+          ground: hills;
+          groundYScale: 1;
+          groundTexture: none;
+          groundColor: #ff0054;
+          horizonColor: #fff;
+        "
+        position="0 -5.5 0"
+        shadow="cast: false; receive: true"
+        animation="duration:1500;"
+        hide-in-ar-mode>
+      </a-entity>
+
+      <!-- Lighting -->
+      <a-light type="ambient" color="#888"></a-light>
+      <a-light type="point" intensity="2" position="2 4 2"></a-light>
+    </a-scene>
+
+<script>
+window.addEventListener("load", () => {
+  const socket = new WebSocket("ws://localhost:3000");
+  const edaHistory = [];
+  const maxHistory = 7.5;
+  let currentYScale = 1;
+  let targetYScale = 1;
+  const lerpSpeed = 0.02;
+
+  function smoothEDA(newValue) {
+    edaHistory.push(newValue);
+    if (edaHistory.length > maxHistory) edaHistory.shift();
+    return edaHistory.reduce((a, b) => a + b, 0) / edaHistory.length;
+  }
+
+  function map(value, inMin, inMax, outMin, outMax) {
+    return ((value - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+  }
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.address === "/EmotiBit/0/EDA") {
+      const edaValue = data.args[0];
+      const smoothed = smoothEDA(edaValue);
+
+      // Sets sphere color & size
+      const r = map(smoothed, 0, 1, 0, 125);
+      const mappedColor = `rgb(${Math.round(r)}, 0, 0)`;
+      const mappedSize = map(smoothed, 0, 1, 0.2, 1);
+
+      const sphere = document.querySelector("#edaSphere");
+      sphere.setAttribute("material", "color", mappedColor);
+      sphere.setAttribute("geometry", "radius", mappedSize);
+
+      // Sets new targetYScale based on smoothed value
+      targetYScale = map(smoothed, 0, 1, 6, 20);
+    }
+  };
+
+  function animate() {
+    currentYScale = lerp(currentYScale, targetYScale, lerpSpeed);
+    const env = document.querySelector("#edaEnvironment");
+    if (env) {
+      env.setAttribute("environment", `
+        preset: starry;
+        grid: none;
+        lighting: distant;
+        flatShading: false;
+        ground: hills;
+        groundYScale: ${currentYScale.toFixed(2)};
+        groundTexture: none;
+        groundColor: #ff0054;
+        horizonColor: #fff;
+      `);
+    }
+    requestAnimationFrame(animate);
+  }
+
+  animate(); // Start render loop
+});
+</script>
+
+  </body>
+</html>

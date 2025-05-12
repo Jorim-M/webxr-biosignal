@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Title Goes Here</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+  </head>
+  <body>
+    <!-- <a-assets>
+      <a-mixin id="wall" geometry="primitive: plane; height: 4; width: 4"></a-mixin>
+    </a-assets> -->
+    <a-scene>
+      <a-sky></a-sky>
+      <!-- Camera for VR -->
+      <a-entity position="0 1.6 2">
+        <a-camera></a-camera>
+      </a-entity>
+
+      <!-- A sphere that changes dynamically -->
+      <a-entity id="edaSphere" geometry="primitive: sphere; radius: 0.2" material="color: #390099" position="0 1 -3"></a-entity>
+      <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4"></a-plane>
+      
+      <a-light type="ambient" color="#888"></a-light>
+      <a-light type="point" intensity="2" position="2 4 2"></a-light>
+      <a-sky color="#59ADFF"></a-sky>
+    </a-scene>
+
+<script>  
+  function setup() {
+    // OSC WebSocket connection
+    let socket = new WebSocket("ws://localhost:3000"); 
+    
+    // Declared edaHistory outside the socket.onmessage scope to preserve its state
+    let edaHistory = [];
+    const maxHistory = 10; // however many frames you'd want to average over
+
+    // Smooth EDA function
+    function smoothEDA(newValue) {
+      edaHistory.push(newValue);
+      if (edaHistory.length > maxHistory) {
+        edaHistory.shift(); // removes the oldest value
+      }
+      const avg = edaHistory.reduce((a, b) => a + b, 0) / edaHistory.length;
+      return avg;
+    }
+
+    socket.onmessage = function(event) {
+      let data = JSON.parse(event.data);
+      console.log("Received OSC:", data);
+      
+      // EmotiBit sends EDA under this address"/EmotiBit/0/EDA"
+      if (data.address === "/EmotiBit/0/EDA") {
+
+        // Initializes edaValue after receiving the data
+        let edaValue = data.args[0];
+        
+        // Applies smoothing to the EDA value
+        let smoothedValue = smoothEDA(edaValue);
+
+        // Maps the smoothed EDA value to color and size
+        let r = map(smoothedValue, 0, 1, 0, 125);
+        let mappedColor = `rgb(${Math.round(r)}, 0, 0)`;
+        let mappedSize = map(smoothedValue, 0, 1, 0.2, 1);
+
+        console.log("Mapped color:", mappedColor);
+
+        // Updates the A-Frame sphere
+        let sphere = document.querySelector("#edaSphere");
+        sphere.setAttribute("material", "color", mappedColor);
+        sphere.setAttribute("geometry", "radius", mappedSize);
+      }
+    };
+  }
+
+  function mapToInt(value, inMin, inMax, outMin, outMax) {
+    return Math.floor(((value - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin);
+  }
+</script>
+
+  </body>
+</html>
