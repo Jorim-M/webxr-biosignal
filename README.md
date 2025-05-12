@@ -56,8 +56,6 @@ Glitch / Vite / Parcel / Webpack
 
 For bundling and live-reloading frontend code.
 
-![IMG](https://github.com/user-attachments/assets/0a71468e-64ff-454a-a109-d6f0cc97cfa6)
-
 ![snap_img](https://github.com/user-attachments/assets/802329f9-4f73-45a5-aab4-abfbec0ab460)
 
 
